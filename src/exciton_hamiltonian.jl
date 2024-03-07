@@ -179,7 +179,7 @@ function exciton_hamiltonian_tda!(h, Q, A, B, UCvol, positions, kpts, Vbare, Wsc
 
             end
 
-            h[Ikcv, Jkcv] += Wij - 2*Vij
+            h[Ikcv, Jkcv] += - Wij + 2*Vij
 
         end
 
