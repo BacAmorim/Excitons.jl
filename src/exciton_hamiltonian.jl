@@ -23,7 +23,7 @@ function exciton_problem(qh::Quantica.Hamiltonian{Tlat, E, 2, Th}, Q, fermienerg
     # extract lattice basis
     A = SMatrix{E, 2, Tlat, E*2}(qh.lattice.bravais.matrix)
     # unit cell volume
-    UCvol = volumeUC(A)
+    VolUC = volumeUC(A)
     # extract reciprocal lattice basis
     B = transpose(2pi*pinv(A))
     # extract site positions
@@ -70,18 +70,18 @@ function exciton_problem(qh::Quantica.Hamiltonian{Tlat, E, 2, Th}, Q, fermienerg
         
     end
     
-    W0 = regularize_IR(Wscreened, B[:, 1], B[:, 2], Nkpts[1], Nkpts[2], UCvol)
+    W0 = regularize_Fock_IR(Wscreened, B[:, 1], B[:, 2], Nkpts[1], Nkpts[2], VolUC)
     
-    return BSEproblem(Q, A, B, UCvol, positions, Nkpts, kpts, Vbare, Wscreened, W0, cutoff, Gstar, Ekv, Ukv, EkQc, UkQc)
+    return BSEproblem(Q, A, B, VolUC, positions, Nkpts, kpts, Vbare, Wscreened, W0, cutoff, Gstar, Ekv, Ukv, EkQc, UkQc)
     
 end
 
-function regularize_IR(W, b1, b2, Nkpts1, Nkpts2, UCvol)
+function regularize_Fock_IR(W, b1, b2, Nkpts1, Nkpts2, VolUC)
     
     k0 = inradius(b1/Nkpts1, b2/Nkpts2)
     Wk0 = W(k0)
     
-    Vol = UCvol*Nkpts1*Nkpts2
+    Vol = VolUC*Nkpts1*Nkpts2
     
     function Wcut(u)
         
@@ -101,7 +101,7 @@ function regularize_IR(W, b1, b2, Nkpts1, Nkpts2, UCvol)
     
     W3 = k0^2*Wk0/(4*pi)
     
-    return W1 + Vol*(W2 + W3)
+    return W1 + Vol*(W2 - W3)
     
 end 
 
@@ -115,7 +115,7 @@ function rho(u1, u2, p, positions)
     return accu
 end
 
-function exciton_hamiltonian_tda!(h, Q, A, B, UCvol, positions, kpts, Vbare, Wscreened, W0, cutoff, Gstar, Ev, Uv, EQc, UQc)
+function exciton_hamiltonian_tda!(h, Q, A, B, VolUC, positions, kpts, Vbare, Wscreened, W0, cutoff, Gstar, Ev, Uv, EQc, UQc)
 
     Nks = length(kpts)
     Nvbands = size(Ev, 1)
@@ -157,9 +157,9 @@ function exciton_hamiltonian_tda!(h, Q, A, B, UCvol, positions, kpts, Vbare, Wsc
                     rho_vjvi = rho(ukvj, ukvi, -p - G, positions)
 
                     if p == zero(p) && G == zero(G)
-                        Wij += W0*rho_cicj*rho_vjvi/(Nks*UCvol)
+                        Wij += W0*rho_cicj*rho_vjvi/(Nks*VolUC)
                     else
-                        Wij += Wscreened(norm(p + G))*rho_cicj*rho_vjvi/(Nks*UCvol)
+                        Wij += Wscreened(norm(p + G))*rho_cicj*rho_vjvi/(Nks*VolUC)
                     end
 
                 end
@@ -172,7 +172,7 @@ function exciton_hamiltonian_tda!(h, Q, A, B, UCvol, positions, kpts, Vbare, Wsc
                         rho_civi = rho(ukQci, ukvi, Q + G, positions)
                         rho_vjcj = rho(ukvj, ukQcj, -Q - G, positions)
 
-                        Vij += Vbare(norm(Q + G))*rho_civi*rho_vjcj/(Nks*UCvol)
+                        Vij += Vbare(norm(Q + G))*rho_civi*rho_vjcj/(Nks*VolUC)
                     end
                     
                 end
@@ -195,7 +195,7 @@ function exciton_hamiltonian_tda!(h, bse::BSEproblem)
     Q = bse.Q
     A = bse.real_lattice
     B = bse.reciprocal_lattice
-    UCvol = bse.unitcell_volume
+    VolUC = bse.unitcell_volume
     positions = bse.sites
     Nkpts = bse.Nkpts
     kpts = bse.kpts
@@ -211,7 +211,7 @@ function exciton_hamiltonian_tda!(h, bse::BSEproblem)
     
     # build hamiltonian
     
-    return exciton_hamiltonian_tda!(h, Q, A, B, UCvol, positions, kpts, Vbare, Wscreened, W0, cutoff, Gstar, Ekv, Ukv, EkQc, UkQc)
+    return exciton_hamiltonian_tda!(h, Q, A, B, VolUC, positions, kpts, Vbare, Wscreened, W0, cutoff, Gstar, Ekv, Ukv, EkQc, UkQc)
     
 end
 
